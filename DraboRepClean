@@ -1,0 +1,614 @@
+ 
+***********************************************
+* Replication
+***********************************************
+
+clear all
+capture log close
+set more off
+*log using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Rep.log", replace
+use "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\MergedDraboDatasetV3.dta", clear
+cd "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data"
+count
+
+
+***********************************************
+* Comtrade Export Data Cleaning
+***********************************************
+
+/* Append all years of export data after importing/saving all as .dta (only allows 5 years to download at a time)
+use "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade86-90.dta", clear
+append using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade91-95.dta"
+append using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade96-2000.dta"
+append using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade2001-05.dta"
+append using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade2006-10.dta"
+
+Drop unecessary mess:
+keep year aggregatelevel reportercode reporter reporteriso commoditycode commodity tradevalueus
+*/
+
+***********************************************
+* FAO Export Data Cleaning
+***********************************************
+/*
+keep countrycode country itemcode item year unit value
+collapse (last) country unit (sum) value, by (countrycode year)
+count
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\FAOAgExportsClean.dta"
+*/
+
+***********************************************
+* FAO Emissions Data Cleaning
+***********************************************
+/*
+*Emissions measured in gigagrams of CO2 equivalent
+keep area* element* item* year unit value 
+tab elementcode, gen(elementtype)
+rename elementtype1 totalemissionsdum
+rename elementtype2 N2Oemissionsdum
+rename elementtype3 CH4emissionsdum
+
+*Prepare for collapse
+gen N20emissions=value if N2Oemissionsdum==1
+gen CH4emissions=value if CH4emissionsdum==1
+gen totalemissions=value if totalemissionsdum==1
+
+
+*Collapse by area, year, type of emissions
+collapse (last) area item (max) N20emissions CH4emissions totalemissions (mean) value, by (areacode year itemcode)
+
+*Drop if not agricultural emissions
+drop if itemcode!=1711
+
+drop if totalemissions==0
+drop if CH4emissions==0
+drop if N20emissions==0
+*/
+
+
+***********************************************
+* WDI Emissions Data Cleaning
+***********************************************
+*thousand metric tons of CO2 equivalent
+
+/*append using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\WDIMethaneEmissions.dta"
+drop v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 v28 v29 v30
+drop v56 v57 v58 v59 v60 v61
+rename v31 y1986
+rename v32 y1987
+rename v33 y1988
+rename v34 y1989
+rename v35 y1990
+rename v36 y1991
+rename v37 y1992
+rename v38 y1993
+rename v39 y1994
+rename v40 y1995
+rename v41 y1996
+rename v42 y1997
+rename v43 y1998
+rename v44 y1999
+rename v45 y2000
+rename v46 y2001
+rename v47 y2002
+rename v48 y2003
+rename v49 y2004
+rename v50 y2005
+rename v51 y2006
+rename v52 y2007
+rename v53 y2008
+rename v54 y2009
+rename v55 y2010
+
+rename ïcountryname country
+
+*Generate dummy variables for type of emissions
+tab indicatorname, gen(emtype)
+tab emtype1 indicatorname
+*emptype1 = methane
+
+*Reshape wide to long by country and type of emissions with a new year variable
+reshape long y, i(countrycode indicatorcode) j(year)
+
+*Generate emissions by methane and nitrous oxide by country
+gen methanemissions=y if emtype1==1
+gen nitemissions=y if emtype2==1
+
+rename methanemissions methemissions
+rename y totem
+
+*Collapse for one obs by country and year
+collapse (last) countrycode (max) methemissions nitemissions (sum) totem, by (country year)
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\WDIEmissionsClean.dta", replace */
+
+***********************************************
+* WDI Total Population Data Cleaning
+***********************************************
+/*
+drop v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 v28 v29 v30
+drop v56 v57 v58 v59 v60 v61
+rename v31 y1986
+rename v32 y1987
+rename v33 y1988
+rename v34 y1989
+rename v35 y1990
+rename v36 y1991
+rename v37 y1992
+rename v38 y1993
+rename v39 y1994
+rename v40 y1995
+rename v41 y1996
+rename v42 y1997
+rename v43 y1998
+rename v44 y1999
+rename v45 y2000
+rename v46 y2001
+rename v47 y2002
+rename v48 y2003
+rename v49 y2004
+rename v50 y2005
+rename v51 y2006
+rename v52 y2007
+rename v53 y2008
+rename v54 y2009
+rename v55 y2010
+
+rename ïcountryname country
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y totpop
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\TotalPopClean.dta"
+
+
+***********************************************
+* WDI Constant GNI $2010USD Data Cleaning
+***********************************************
+*Constant 2010$USD
+
+rename v5 y1986
+rename v6 y1987
+rename v7 y1988
+rename v8 y1989
+rename v9 y1990
+rename v10 y1991
+rename v11 y1992
+rename v12 y1993
+rename v13 y1994
+rename v14 y1995
+rename v15 y1996
+rename v16 y1997
+rename v17 y1998
+rename v18 y1999
+rename v19 y2000
+rename v20 y2001
+rename v21 y2002
+rename v22 y2003
+rename v23 y2004
+rename v24 y2005
+rename v25 y2006
+rename v26 y2007
+rename v27 y2008
+rename v28 y2009
+rename v29 y2010
+
+rename ïcountryname country
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y GNI
+
+sum*
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\ConstantGNIClean.dta"
+
+***********************************************
+* WDI Education/Literacy Rate Data Cleaning
+***********************************************
+*Literacy Rate, adult total (% of people ages 15 and above)
+
+drop v30 v31 v32 v33 v34 v35 
+
+rename v5 y1986
+rename v6 y1987
+rename v7 y1988
+rename v8 y1989
+rename v9 y1990
+rename v10 y1991
+rename v11 y1992
+rename v12 y1993
+rename v13 y1994
+rename v14 y1995
+rename v15 y1996
+rename v16 y1997
+rename v17 y1998
+rename v18 y1999
+rename v19 y2000
+rename v20 y2001
+rename v21 y2002
+rename v22 y2003
+rename v23 y2004
+rename v24 y2005
+rename v25 y2006
+rename v26 y2007
+rename v27 y2008
+rename v28 y2009
+rename v29 y2010
+
+rename ïcountryname country
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y litrate
+
+sum*
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\LitRateClean.dta"
+
+***********************************************
+* WDI HH Expenditure Data Cleaning
+***********************************************
+*Household final consumption expenditure 2010USD
+
+rename v5 y1986
+rename v6 y1987
+rename v7 y1988
+rename v8 y1989
+rename v9 y1990
+rename v10 y1991
+rename v11 y1992
+rename v12 y1993
+rename v13 y1994
+rename v14 y1995
+rename v15 y1996
+rename v16 y1997
+rename v17 y1998
+rename v18 y1999
+rename v19 y2000
+rename v20 y2001
+rename v21 y2002
+rename v22 y2003
+rename v23 y2004
+rename v24 y2005
+rename v25 y2006
+rename v26 y2007
+rename v27 y2008
+rename v28 y2009
+rename v29 y2010
+
+rename ïcountryname country
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y hhexp
+
+sum*
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\HHExpClean.dta"
+
+
+***********************************************
+* WDI Ag Land Share Data Cleaning
+***********************************************
+*Ag land as a percent of all land area
+
+rename v5 y1986
+rename v6 y1987
+rename v7 y1988
+rename v8 y1989
+rename v9 y1990
+rename v10 y1991
+rename v11 y1992
+rename v12 y1993
+rename v13 y1994
+rename v14 y1995
+rename v15 y1996
+rename v16 y1997
+rename v17 y1998
+rename v18 y1999
+rename v19 y2000
+rename v20 y2001
+rename v21 y2002
+rename v22 y2003
+rename v23 y2004
+rename v24 y2005
+rename v25 y2006
+rename v26 y2007
+rename v27 y2008
+rename v28 y2009
+rename v29 y2010
+
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y agperc
+
+sum*
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\AgPercClean.dta"
+
+***********************************************
+* WDI Imports-GDP Ratio Data Cleaning
+***********************************************
+*Imports of goods and services (% of GDP)
+
+rename v5 y1986
+rename v6 y1987
+rename v7 y1988
+rename v8 y1989
+rename v9 y1990
+rename v10 y1991
+rename v11 y1992
+rename v12 y1993
+rename v13 y1994
+rename v14 y1995
+rename v15 y1996
+rename v16 y1997
+rename v17 y1998
+rename v18 y1999
+rename v19 y2000
+rename v20 y2001
+rename v21 y2002
+rename v22 y2003
+rename v23 y2004
+rename v24 y2005
+rename v25 y2006
+rename v26 y2007
+rename v27 y2008
+rename v28 y2009
+rename v29 y2010
+
+
+drop indicator*
+
+*Reshape wide to long by country with a new year variable
+reshape long y, i(countrycode) j(year)
+
+rename y gdpimports
+
+sum*
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\GDPImportsClean.dta", replace
+
+*/
+
+***********************************************
+*Other Data Cleaning (Remoteness & Frankel and Rose Instrument)
+***********************************************
+/*
+use "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\TRADHIS Raw.dta", clear
+
+collapse (mean) GDP_o POP_o (sum) IPTOT_o XPTOT_o (last) REGIO_o CONTI_o, by(iso_o year)
+
+keep if year>1985 & year<2011
+
+gen remote=(GDP_o/(IPTOT_o + XPTOT_o))
+
+drop if remote==.
+
+rename iso_o countrycode
+
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\TRADHist Remote Clean.dta"
+*/
+
+***********************************************
+* Merge
+***********************************************
+/*
+*Start with GDP Imports
+*Merge Remote Dataset
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\TRADHist Remote Clean.dta"
+save "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\MergedDraboDataset.dta"
+drop _merge
+
+*Merge HH Exp
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\HHExpClean.dta"
+drop _merge
+
+*Merge Lit Rate
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\LitRateClean.dta"
+drop _merge
+
+*Merge Total Population
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\TotalPopClean.dta"
+drop _merge
+
+*Merge WDI Emissions
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\WDIEmissionsClean.dta"
+drop _merge
+
+*Merge Constant $2010 GNI
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\ConstantGNIClean.dta" 
+drop _merge
+
+*Merge Ag Percent of Total Land Area
+merge 1:1 countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\AgPercClean.dta"
+drop _merge
+
+*Merge FAO Ag Exports
+merge m:1 countryname year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\FAOAgExportsClean.dta"
+drop _merge
+
+*Merge FAO Emissions
+merge m:1 countryname year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\FAOEmissionsClean.dta"
+drop _merge
+
+*Merge Comtrade data after figuring out if ag comm data is needed separately
+merge m:m countrycode year using "C:\Users\Ariana.Lema001\Documents\UMass Boston\ECON 652 Quant 2\Replication\Data\Comtrade1986-2010.dta"
+drop _merge
+
+keep if year>1985 & year<2011
+
+*Drop excluded countries
+drop if countrycode=="AFG" | countrycode=="ASM" | countrycode=="AND"  | countrycode=="AIA"  | countrycode=="ATG"  | countrycode=="ARB" | ///
+countrycode=="ABW" | countrycode=="AZE"  | countrycode=="BHS"  | countrycode=="BHR"  | countrycode=="BMU"  | countrycode=="BIH"  | ///
+countrycode=="VGB" | countrycode=="BRN" | countrycode=="CPV"  | countrycode=="CSS"  | countrycode=="CYM"  | countrycode=="CAF" | ///
+countrycode=="CEB" | countrycode=="TCD" | countrycode=="CHI"  | countrycode=="COM"  | countrycode=="COK"  | countrycode=="CIV" | ///
+countrycode=="CUB" | countrycode=="CUW" | countrycode=="CSK"  | countrycode=="DJI"  | countrycode=="DMA"  | countrycode=="EAR" | ///
+countrycode=="EAS" | countrycode=="TEA" | countrycode=="EAP"  | countrycode=="EMU"  | countrycode=="ECS"  | countrycode=="TEC" | ///
+countrycode=="ECA" | countrycode=="EUU" | countrycode=="FRO"  | countrycode=="FCS"  | countrycode=="GUF"  | countrycode=="PYF" | ///
+countrycode=="GAB" | countrycode=="GIB" | countrycode=="GRL"  | countrycode=="GRD"  | countrycode=="GLP"  | countrycode=="GUM" | ///
+countrycode=="DDR" | countrycode=="GNB" | countrycode=="HTI"  | countrycode=="HPC"  | countrycode=="HIC"  | countrycode=="HKG" | ///
+countrycode=="IBD" | countrycode=="IBT" | countrycode=="IDB"  | countrycode=="IDX"  | countrycode=="IDA"  | countrycode=="IRQ" | ///
+countrycode=="IMN" | countrycode=="KIR" | countrycode=="LAC"  | countrycode=="XKX"  | countrycode=="KWT"  | countrycode=="LAO" | ///
+countrycode=="LTE" | countrycode=="LCN" | countrycode=="TLA"  | countrycode=="LDC"  | countrycode=="LBR"  | countrycode=="LBY" | ///
+countrycode=="LIE" | countrycode=="LMY" | countrycode=="LIC"  | countrycode=="LMC"  | countrycode=="MAC"  | countrycode=="MDV" | ///
+countrycode=="MHL" | countrycode=="MTQ" | countrycode=="MYT"  | countrycode=="FSM"  | countrycode=="MEA"  | countrycode=="TMN" | ///
+countrycode=="MNA" | countrycode=="MIC" | countrycode=="MCO"  | countrycode=="MNE"  | countrycode=="MSR"  | countrycode=="MMR" | ///
+countrycode=="NRU" | countrycode=="ANT" | countrycode=="NCL"  | countrycode=="NAC"  | countrycode=="MNP"  | countrycode=="INX" | ///
+countrycode=="OED" | countrycode=="OSS" | countrycode=="PSS"  | countrycode=="PLW"  | countrycode=="PNG"  | countrycode=="PST" | ///
+countrycode=="PRE" | countrycode=="PRI" | countrycode=="REU"  | countrycode=="SPM"  | countrycode=="SMR"  | countrycode=="STP" | ///
+countrycode=="SRB" | countrycode=="SCG" | countrycode=="SLE"  | countrycode=="SGP"  | countrycode=="SXM"  | countrycode=="SST" | ///
+countrycode=="SLB" | countrycode=="SOM" | countrycode=="SAS"  | countrycode=="SSD"  | countrycode=="KNA"  | countrycode=="MAF" | ///
+countrycode=="VCT" | countrycode=="SSF" | countrycode=="SSA"  | countrycode=="SWZ"  | countrycode=="SYR"  | countrycode=="TLS" | ///
+countrycode=="TON" | countrycode=="TCM" | countrycode=="TUV"  | countrycode=="UGA"  | countrycode=="ARE"  | countrycode=="UMC" | ///
+countrycode=="TKM" | countrycode=="UZB" | countrycode=="VIR"  | countrycode=="PSE"  | countrycode=="WLD"  | countrycode=="ZMB" 
+
+*/
+
+*save V3
+*Congo?? COD vs COG
+*Drop Brazil??
+drop if countrycode=="BRA"
+drop if countrycode=="COD"
+drop if countrycode=="YMD"
+drop if countrycode=="WDEU" | countrycode=="EDEU" | countrycode=="KSV"
+
+
+
+drop if countryname=="Bahamas"
+drop if countryname=="China, Hong Kong SAR"
+drop if countryname=="China, Macao SAR"
+drop if countryname=="China, Taiwan Province of"
+drop if countryname=="Cook Islands"
+drop if countryname=="Czechoslovakia"
+drop if countryname=="CÃ´te d'Ivoire"
+drop if countryname=="Democratic People's Republic of Korea"
+drop if countryname=="Falkland Islands (Malvinas)"
+drop if countryname=="French Guiana"
+drop if countryname=="Gambia"
+drop if countryname=="Guadeloupe"
+drop if countryname=="Martinique"
+drop if countryname=="Micronesia (Federated States of)"
+drop if countryname=="Montserrat"
+drop if countryname=="Netherlands Antilles (former)"
+drop if countryname=="Niue"
+drop if countryname=="Occupied Palestinian Territory"
+drop if countryname=="RÃ©union"
+drop if countryname=="Saint Helena, Ascension and Tristan da Cunha"
+drop if countryname=="Saint Kitts and Nevis"
+drop if countryname=="Saint Pierre and Miquelon"
+drop if countryname=="Saint Vincent and the Grenadines"
+drop if countryname=="Serbia and Montenegro"
+drop if countryname=="Tokelau"
+drop if countryname=="USSR"
+drop if countryname=="United States Virgin Islands"
+drop if countryname=="Wallis and Futuna Islands"
+drop if countryname=="Western Sahara"
+drop if countryname=="Yugoslav SFR"
+drop if countryname=="Turks and Caicos Islands"
+drop if countryname=="Democratic Republic of the Congo"
+drop if countryname=="Pacific Islands Trust Territory"
+
+
+*Rename merged variables
+rename methemissions CH4FAO
+rename nitemissions N2OFAO
+rename totem TotEmFAO
+
+rename totalemissions TotEmWDI
+rename CH4emissions CH4WDI
+rename N20emissions N2OWDI
+
+rename value AgExportsFAO
+
+*Fix mismatches
+replace countrycode="VNM" if countryname=="Viet Nam"
+replace countrycode="BEL" if countryname=="Belgium-Luxembourg"
+replace countrycode="BOL" if countryname=="Bolivia (Plurinational State of)"
+replace countrycode="CHN" if countryname=="China, mainland"
+replace countrycode="COG" if countryname=="Congo"
+replace countrycode="CZE" if countryname=="Czechia"
+replace countrycode="EGY" if countryname=="Egypt"
+replace countrycode="ETH" if countryname=="Ethiopia PDR"
+replace countrycode="IRN" if countryname=="Iran (Islamic Republic of)"
+replace countrycode="KGZ" if countryname=="Kyrgyzstan"
+replace countrycode="KOR" if countryname=="Republic of Korea"
+replace countrycode="MDA" if countryname=="Republic of Moldova"
+replace countrycode="ROU" if countryname=="Romania"
+replace countrycode="LCA" if countryname=="Saint Lucia"
+replace countrycode="SVK" if countryname=="Slovakia"
+replace countrycode="SDN" if countryname=="Sudan (former)"
+replace countrycode="TZA" if countryname=="United Republic of Tanzania"
+replace countrycode="USA" if countryname=="United States of America"
+replace countrycode="VEN" if countryname=="Venezuela (Bolivarian Republic of)"
+replace countrycode="YEM" if countryname=="Yemen"
+
+replace countrycode="ROU" if countrycode=="ROM"
+replace countryname="Romania" if countrycode=="ROU"
+
+replace countrycode="CZE" if countrycode=="CZSK"
+replace countryname="Czech Republic" if countrycode=="CZE"
+
+replace countrycode="RUS" if countrycode=="USSR"
+replace countryname="Russian Federation" if countrycode=="RUS"
+
+replace countrycode="MKD" if countryname=="The former Yugoslav Republic of Macedonia"
+replace countrycode="MKD" if countrycode=="YUG"
+replace countryname="Maceonia, FYR" if countrycode=="MKD"
+
+
+*drop =TSS?
+
+count
+
+collapse (last) REGIO_o CONTI_o countryname (mean) GDP_o CH4FAO N2OFAO TotEmFAO N2OWDI CH4WDI agexportsthousands AgExportsFAO remote totpop GNI litrate agperc hhexp gdpimports, by (countrycode year)
+
+count
+
+*Log variables
+
+gen LogFAOExports=log(AgExportsFAO)
+gen LogFAOCH4=log(CH4FAO)
+gen LogFAON2O=log(N2OFAO)
+gen LogFAOTotalEm=log(TotEmFAO)
+gen LogTotPop=log(totpop)
+gen LogGNI=log(GNI)
+gen LogHHExp=log(hhexp)
+
+*Log of GNI Squared
+gen LogGNISq=log(GNI^2)
+
+
+
+reg LogFAOExports LogTotPop LogGNISq litrate agperc LogHHExp gdpimports i.year
+reg LogFAOCH4 LogFAOExports LogTotPop LogGNI LogGNISq litrate agperc LogHHExp gdpimports i.year
+reg LogFAON2O LogFAOExports LogTotPop LogGNI LogGNISq litrate agperc LogHHExp gdpimports i.year
+reg LogFAOTotalEm LogFAOExports LogTotPop LogGNI LogGNISq agperc LogHHExp gdpimports i.year
+
+*Summary Statistics
+estpost sum CH4FAO LogFAOCH4 N2OFAO LogFAON2O TotEmFAO LogFAOTotalEm N2OWDI CH4WDI agexportsthousands AgExportsFAO LogFAOExports ///
+remote totpop LogTotPop GNI LogGNI LogGNISq litrate agperc hhexp LogHHExp gdpimports
+esttab . using "summary.rtf", cells("mean(fmt(2)) min(fmt(2)) max(fmt(2)) var(fmt(2))") noobs collabels("Mean" "Min." "Max." "Coef. variation") label replace nonum
+
+
+*esttab . using "summary.rtf", cells("mean(fmt(2)) sd(fmt(2)) count(fmt(0))") noobs collabels("Mean" "Std. Dev." "N") label replace nonum
+
+
